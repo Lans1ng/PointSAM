@@ -13,7 +13,9 @@
  The code will be released soon. 
 
 ## Overview
-![PDF Page](assets/overview.jpg)
+<div align="center">
+  <img width="700" src="assets/overview.jpg"/>
+</div>
 
 ## 🎮 Getting Started
 ### 1.Install Environment
@@ -23,7 +25,7 @@ conda activate pointsam
 
 pip install torch==2.3.1 torchvision==0.18.1 torchaudio==2.3.1 --index-url https://download.pytorch.org/whl/cu118
 git clone https://github.com/Lans1ng/PointSAM.git
-cd OSSOD
+cd PointSAM
 pip install -r requirements.txt
 
 cd segment_anything_2
