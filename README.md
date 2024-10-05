@@ -4,8 +4,8 @@
 </p>
 
 [![paper](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2409.13401)
----
 
+---
 ## 📢 Latest Updates
 - **20 Sep 2024**: The arXiv version is released [here](https://arxiv.org/abs/2409.13401).
 ---
@@ -13,9 +13,8 @@
  The code will be released soon. 
 
 ## Overview
-<div align="center">
-  <img width="700" src="assets/overview.jpg"/>
-</div>
+
+![PDF Page](assets/overview.jpg)
 
 ## 🎮 Getting Started
 ### 1.Install Environment
