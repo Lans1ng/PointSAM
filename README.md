@@ -3,7 +3,17 @@
     <img src="https://i.imgur.com/waxVImv.png" alt="Oryx Video-ChatGPT">
 </p>
 
-The arXiv version can be found [here](https://arxiv.org/abs/2409.13401). The code will be released soon. 
+[![paper](https://img.shields.io/badge/arXiv-Paper-<COLOR>.svg)](https://arxiv.org/abs/2409.13401)
+---
+
+## 📢 Latest Updates
+- **20 Sep 2024**: The arXiv version is released [here](https://arxiv.org/abs/2409.13401).
+---
+
+ The code will be released soon. 
+
+## Overview
+![PDF Page](assets/overview.jpg)
 
 ## 🎮 Getting Started
 ### 1.Install Environment
@@ -66,11 +76,11 @@ data
 │    │   │      └── inshore_train.json       
 │    │   └── offshore
 │    └── JPEGImages
-├── NWPU
-│    ├── Annotations
-│    │   ├── NWPU_instnaces_train.json
-│    │   └── NWPU_instnaces_val.json
-│    └── images
+└── NWPU
+     ├── Annotations
+     │   ├── NWPU_instnaces_train.json
+     │   └── NWPU_instnaces_val.json
+     └── images
 
 ```
 
@@ -78,6 +88,7 @@ data
 
 - [wesam](https://github.com/zhang-haojie/wesam)
 - [OWOD](https://github.com/JosephKJ/OWOD)
+- [RSPrompter](https://github.com/KyanChen/RSPrompter)
 
 
 ## 🖊️ Citation
