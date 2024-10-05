@@ -12,7 +12,7 @@
 
  The code will be released soon. 
 
-## Overview
+## 🎨 Overview
 
 ![PDF Page](assets/overview.jpg)
 
@@ -50,7 +50,7 @@ cd ..
 
 - Instance label download address: [NWPU VHR-10 Instance Label](https://github.com/chaozhong2010/VHR-10_dataset_coco).
 
-
+Organize the dataset as follow:
 
 ```
 data 
