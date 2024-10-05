@@ -50,7 +50,7 @@ cd ..
 
 - Instance label download address: [NWPU VHR-10 Instance Label](https://github.com/chaozhong2010/VHR-10_dataset_coco).
 
-Organize the dataset as follow:
+For convenience, we have included all the JSON annotations in this repo, and you only need to download the corresponding images. Specifically, organize the dataset as follows:
 
 ```
 data 
