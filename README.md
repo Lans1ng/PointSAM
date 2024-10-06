@@ -76,12 +76,12 @@ data
 │    │   │      ├── inshore_test.json
 │    │   │      └── inshore_train.json       
 │    │   └── offshore
-│    └── JPEGImages
+│    └── Images
 └── NWPU
      ├── Annotations
      │   ├── NWPU_instnaces_train.json
      │   └── NWPU_instnaces_val.json
-     └── images
+     └── Images
 
 ```
 
