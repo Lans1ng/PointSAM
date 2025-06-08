@@ -133,7 +133,7 @@ def plotwithpoint(fabric: L.Fabric, anchor_model: Model, model: Model, val_datal
                         x_coords.append(x)
                         y_coords.append(y)
                     point_color = np.concatenate([color, [1.0]])
-                    axs[0].scatter(x_coords, y_coords, c=point_color)
+                    axs[0].scatter(x_coords, y_coords, color=point_color)
 
                     base_mask_i = (base_mask_i.squeeze(0) > 0.).cpu().numpy().astype(bool)
                     pred_mask_i = (pred_mask_i.squeeze(0) > 0.).cpu().numpy().astype(bool)
