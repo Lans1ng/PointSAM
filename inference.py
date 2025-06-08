@@ -59,9 +59,12 @@ def plotwithpoint(fabric: L.Fabric, anchor_model: Model, model: Model, val_datal
 
             prompts = []
             for mask in gt_masks:
-                po_points = compute_centroids(mask)
+                try:
+                    po_points = compute_centroids(mask)
+                    po_point_coords = torch.tensor(po_points, device=fabric.device)
+                except:
+                    continue
                 na_points = uniform_sampling((~mask.to(bool)).to(float), num_points)
-                po_point_coords = torch.tensor(po_points, device=fabric.device)
                 na_point_coords = torch.tensor(na_points, device=fabric.device)
                 point_coords = torch.cat((po_point_coords, na_point_coords), dim=1)
                 po_point_labels = torch.ones(po_point_coords.shape[:2], dtype=torch.int, device=fabric.device)
