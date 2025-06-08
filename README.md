@@ -9,6 +9,15 @@
 
 </div>
 
+<!--
+---
+
+## ❗️Notice
+
+**Because the issue has been abused recently, I have temporarily closed it. If you have any questions, you can contact me via email at lansing163@163.com.**
+-->
+
+
 ---
 ## 📢 Latest Updates
 - **2 Jan 2025**: **PointSAM** has been accepted by TGRS and is now available [here](https://ieeexplore.ieee.org/document/10839471).
@@ -34,6 +43,9 @@ git clone https://github.com/Lans1ng/PointSAM.git
 cd PointSAM
 pip install -r requirements.txt
 ```
+
+**Note:**
+The CUDA version in the `pip install` command is specified as `cu118` (CUDA 11.8). If your system uses a different CUDA version (e.g., CUDA 12.1), replace `cu118` with the appropriate version tag (e.g., `cu121`). 
 
 ### 2.Prepare Dataset 
 
