@@ -83,7 +83,7 @@ class HRSIDDataset(Dataset):
             masks = np.stack(masks, axis=0)
             origin_bboxes = np.stack(origin_bboxes, axis=0)
             origin_masks = np.stack(origin_masks, axis=0)
-            return image_info["file_name"], image_id, padding, origin_image, origin_bboxes, origin_masks, image, torch.tensor(bboxes), torch.tensor(masks).float()
+            return image_id, padding, origin_image, origin_bboxes, origin_masks, image, torch.tensor(bboxes), torch.tensor(masks).float()
 
         else:
             if self.transform:
@@ -182,7 +182,7 @@ def load_datasets_visual(cfg, img_size):
     val = HRSIDDataset(
         cfg,
         root_dir=cfg.datasets.HRSID.root_dir,
-        annotation_file=cfg.datasets.HRSID.annotation_file_train,
+        annotation_file=cfg.datasets.HRSID.annotation_file_val,
         transform=transform,
     )
     val_dataloader = DataLoader(
