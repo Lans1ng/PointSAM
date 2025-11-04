@@ -119,9 +119,9 @@ For convenience, the `scripts` folder provides training instructions for **three
 - **PointSAM** – point supervised and the proposed method trained with point-level annotations.
 
 Here’s an example of training **PointSAM** on the **WHU** dataset:
-```bash
+```
 bash scripts/train_whu_pointsam.sh
-
+```
 ### 5. Inference
 
 Here’s an example of how to perform inference:
