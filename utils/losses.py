@@ -140,22 +140,9 @@ def Matching_Loss(pred_prototypes, target_prototypes, device):
     pred_prototypes: list of predicted prototypes
     target_prototypes: list of target prototypes
     """
-    num_pred = len(pred_prototypes)
-    num_target = len(target_prototypes)
-
-    num = min(num_pred,num_target)
-    cost_matrix = torch.zeros((num_pred, num_target))
-    for i, pred_proto in enumerate(pred_prototypes):
-        for j, target_proto in enumerate(target_prototypes):
-
-            cos_sim = cosine_similarity(pred_proto, target_proto, device)
-            cost_matrix[i, j] = 1 - cos_sim
-
-    row_indices, col_indices = linear_sum_assignment(cost_matrix.numpy())
-
-    total_loss = 0
-    for row, col in zip(row_indices, col_indices):
-        total_loss += cost_matrix[row, col].item()
-    
-    return total_loss/len(row_indices)
+    predicted = torch.as_tensor(pred_prototypes, device=device, dtype=torch.float32)
+    target = torch.as_tensor(target_prototypes, device=device, dtype=torch.float32)
+    cost_matrix = 1 - F.cosine_similarity(predicted[:, None, :], target[None, :, :], dim=-1)
+    row_indices, col_indices = linear_sum_assignment(cost_matrix.detach().cpu().numpy())
+    return cost_matrix[row_indices, col_indices].mean()
 

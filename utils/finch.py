@@ -14,6 +14,23 @@ from sklearn.utils import check_array
 from sklearn.metrics import silhouette_score
 
 
+def select_partition(partitions, target_count=None, mode='last'):
+    """Select a FINCH level; closest maximizes rectangular match coverage."""
+    if not partitions:
+        raise ValueError('FINCH produced no partitions')
+    if mode == 'last':
+        return list(partitions.values())[-1]
+    if mode != 'closest' or target_count is None or target_count < 1:
+        raise ValueError(f'Invalid partition selection: {mode}, {target_count}')
+    return min(
+        partitions.values(),
+        key=lambda part: (
+            max(part['n_clusters'], target_count) / min(part['n_clusters'], target_count),
+            abs(part['n_clusters'] - target_count),
+        ),
+    )
+
+
 class FINCH():
     """
     A class to perform the FINCH clustering

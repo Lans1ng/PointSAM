@@ -1,4 +1,5 @@
 base_config = {
+    "seed": 42,
     "eval_interval": 1,
     "ema_rate": 0.999,
     "csv_keys": [ "Prompt", "IoU", "Recall", "Precision", "F1", "epoch"],
@@ -48,9 +49,9 @@ base_config = {
             "annotation_file_val": "data/WHU/annotations/WHU_building_val.json",
         },
         "HRSID": {
-            "root_dir": "/root/autodl-fs/_DATASETS/HRSID/Images",   
-            "annotation_file_train": "/root/autodl-fs/_DATASETS/HRSID/Annotations/inshore/inshore_train.json",
-            "annotation_file_val": "/root/autodl-fs/_DATASETS/HRSID/Annotations/inshore/inshore_test.json"
+            "root_dir": "data/HRSID/Images",
+            "annotation_file_train": "data/HRSID/Annotations/inshore/inshore_train.json",
+            "annotation_file_val": "data/HRSID/Annotations/inshore/inshore_test.json"
         },
     },
 }

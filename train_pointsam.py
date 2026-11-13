@@ -2,6 +2,7 @@ import os
 import time
 import argparse
 import random
+from datetime import timedelta
 from abc import ABC
 
 import cv2
@@ -21,7 +22,7 @@ from utils.losses import DiceLoss, FocalLoss, Matching_Loss
 from utils.eval_utils import AverageMeter, validate, get_prompts, calc_iou
 from utils.tools import copy_model, create_csv, reduce_instances
 from utils.utils import *
-from utils.finch import FINCH
+from utils.finch import FINCH, select_partition
 
 vis = False
 
@@ -34,6 +35,7 @@ def train_sam(
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
     target_pts,
+    initial_validation_time: float,
 ):
 
     focal_loss = FocalLoss()
@@ -41,7 +43,12 @@ def train_sam(
     max_iou = 0.
     mem_bank = Store(1, cfg.mem_bank_max_len) 
     match_interval = cfg.match_interval
+    train_start = time.monotonic()
+    total_batch_time = AverageMeter()
+    validation_time = AverageMeter()
+    validation_time.update(initial_validation_time)
     for epoch in range(1, cfg.num_epochs + 1):
+        model.train()
         batch_time = AverageMeter()
         data_time = AverageMeter()
         focal_losses = AverageMeter()
@@ -63,6 +70,7 @@ def train_sam(
             if num_insts > cfg.max_nums:
                 bboxes, gt_masks = reduce_instances(bboxes, gt_masks, cfg.max_nums)
             prompts = get_prompts(cfg, bboxes, gt_masks)
+            match_ready = (iter + 1) % match_interval == 0 and len(mem_bank) + sum(len(m) for m in gt_masks) >= cfg.mem_bank_max_len
 
             #1. caculate pairwise IoUs of masks
             mask_ious, init_masks = cal_mask_ious(cfg, model, images_weak, prompts, gt_masks)
@@ -71,7 +79,8 @@ def train_sam(
             new_prompts = neg_prompt_calibration(cfg, mask_ious, prompts)
 
             #3. start training using new prompt
-            soft_image_embeds, soft_masks, _, _ = model(images_weak, new_prompts)    # teacher
+            with torch.set_grad_enabled(match_ready):
+                soft_image_embeds, soft_masks, _, _ = model(images_weak, new_prompts)    # teacher
             
             if isinstance(soft_image_embeds, dict):
                 soft_image_embeds = soft_image_embeds['vision_features']  
@@ -89,20 +98,32 @@ def train_sam(
             for i, (embed, pred_mask, soft_mask,  gt_mask, prompt, iou_prediction) in enumerate(zip(soft_image_embeds, pred_masks, soft_masks, gt_masks, prompts, iou_predictions)):
                     
                 soft_mask = (soft_mask > 0.).float()
-                pred_feats = generate_predict_feats(cfg, embed, soft_mask, prompt)
+                live_feats = generate_predict_feats(cfg, embed, soft_mask, prompt)
                 target_pts_ = target_pts['target_pts']  
-                pred_feats = pred_feats.cpu().tolist()
-                for pred_feat in pred_feats:
+                for pred_feat in live_feats.detach().cpu().tolist():
                     mem_bank.add([[pred_feat]], [0])
                 if len(mem_bank.retrieve(0)) >= cfg.mem_bank_max_len and (iter + 1) % match_interval == 0:
-                    pred_feats = mem_bank.retrieve(0)  
-                    pred_feats = np.array(pred_feats) 
+                    bank_feats = np.array(mem_bank.retrieve(0))
 
                     #FINCH
                     fin = FINCH(verbose=False)
-                    results = fin.fit(pred_feats)
-                    last_key = list(results.partitions.keys())[-1]
-                    pred_pts = results.partitions[last_key]['cluster_centers']
+                    results = fin.fit(bank_feats)
+                    partition = select_partition(
+                        results.partitions, len(target_pts_), cfg.get('match_partition', 'last'))
+                    pred_count = partition['n_clusters']
+                    target_count = len(target_pts_)
+                    partition_counts = [p['n_clusters'] for p in results.partitions.values()]
+                    fabric.print(
+                        f'Match clusters: target={target_count} predicted={pred_count} '
+                        f'levels={partition_counts} '
+                        f'coverage={min(pred_count, target_count) / max(pred_count, target_count):.2f}')
+                    cached_feats = torch.as_tensor(bank_feats[:-len(live_feats)], device=fabric.device, dtype=live_feats.dtype)
+                    clustered_feats = torch.cat((cached_feats, live_feats), dim=0)
+                    labels = torch.as_tensor(partition['labels'], device=fabric.device)
+                    pred_pts = torch.stack([
+                        clustered_feats[labels == cluster].mean(dim=0)
+                        for cluster in range(partition['n_clusters'])
+                    ])
                     loss_match += Matching_Loss(pred_pts, target_pts_, device = fabric.device)
 
                 del embed
@@ -170,6 +191,7 @@ def train_sam(
             torch.cuda.empty_cache()
 
             batch_time.update(time.time() - end)
+            total_batch_time.update(batch_time.val)
             end = time.time()
 
             focal_losses.update(loss_focal.item(), batch_size)
@@ -179,7 +201,15 @@ def train_sam(
             match_losses.update(loss_match.item(), batch_size)
 
             if (iter+1) %match_interval==0:
+                completed_steps = (epoch - 1) * num_iter + iter + 1
+                remaining_steps = cfg.num_epochs * num_iter - completed_steps
+                remaining_validations = cfg.num_epochs // cfg.eval_interval - (epoch - 1) // cfg.eval_interval
+                eta_seconds = (remaining_steps * total_batch_time.avg
+                               + remaining_validations * validation_time.avg)
+                elapsed = timedelta(seconds=round(time.monotonic() - train_start))
+                eta = timedelta(seconds=round(eta_seconds))
                 fabric.print(f'Epoch: [{epoch}][{iter + 1}/{len(train_dataloader)}]'
+                             f' | Elapsed [{elapsed}] | ETA [{eta}]'
                              f' | Time [{batch_time.val:.3f}s ({batch_time.avg:.3f}s)]'
                              f' | Data [{data_time.val:.3f}s ({data_time.avg:.3f}s)]'
                              f' | Focal Loss [{focal_losses.val:.4f} ({focal_losses.avg:.4f})]'
@@ -198,7 +228,9 @@ def train_sam(
             torch.cuda.empty_cache()
             
         if epoch % cfg.eval_interval == 0:
+            validation_start = time.monotonic()
             iou, _= validate(fabric, cfg, model, val_dataloader, cfg.name, epoch)
+            validation_time.update(time.monotonic() - validation_start)
             if iou > max_iou:
                 state = {"model": model, "optimizer": optimizer}
                 fabric.save(os.path.join(cfg.out_dir, "save", "best-ckpt.pth"), state)
@@ -239,7 +271,7 @@ def main(cfg: Box) -> None:
                       strategy="auto",
                       loggers=[TensorBoardLogger(cfg.out_dir)])
     fabric.launch()
-    fabric.seed_everything(1337 + fabric.global_rank)
+    fabric.seed_everything(cfg.seed + fabric.global_rank)
 
     if fabric.global_rank == 0:
         os.makedirs(os.path.join(cfg.out_dir, "save"), exist_ok=True)
@@ -263,13 +295,15 @@ def main(cfg: Box) -> None:
         optimizer.load_state_dict(full_checkpoint["optimizer"])
     print('-'*100)
     print('\033[92mDirect test on the original SAM.\033[0m') 
+    validation_start = time.monotonic()
     _, _, = validate(fabric, cfg, model, val_data, name=cfg.name, epoch=0)
+    initial_validation_time = time.monotonic() - validation_start
     print('-'*100)
     del _     
     
     target_pts = offline_prototypes_generation(cfg, model, pt_data)
     
-    train_sam(cfg, fabric, model, optimizer, scheduler, train_data, val_data, target_pts)
+    train_sam(cfg, fabric, model, optimizer, scheduler, train_data, val_data, target_pts, initial_validation_time)
 
     del model, train_data, val_data
 

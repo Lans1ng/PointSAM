@@ -17,6 +17,7 @@ config = {
     "lora_rank": 4,
     "mem_bank_max_len": 512,
     "match_interval": 30,
+    "match_partition": "closest",
     "iou_thr": 0.1,
 
     "prompt": "point",

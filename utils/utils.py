@@ -1,4 +1,5 @@
 import random
+import sys
 from collections import deque
 from tqdm import tqdm
 from box import Box
@@ -177,9 +178,9 @@ def generate_predict_feats(cfg, embed, pseudo_label, gts):
     pos_pts = [] 
 
     for index in range(0, num_insts * num_points, num_points):
-        index = random.randint(0, num_points - 1)
+        index += random.randint(0, num_points - 1)
         x, y = coords[index]
-        pos_pt = embed[x, y]
+        pos_pt = embed[y, x]
         pos_pts.append(pos_pt)
 
     predict_feats = torch.stack(pos_pts, dim=0)
@@ -194,7 +195,8 @@ def offline_prototypes_generation(cfg, model, loader):
     num_points = cfg.num_points
 
     with torch.no_grad():
-        for i, batch in enumerate(tqdm(loader, desc='Generating target prototypes', ncols=100)):
+        for i, batch in enumerate(tqdm(loader, desc='Generating target prototypes', ncols=100,
+                                       disable=not sys.stderr.isatty())):
             if i >= max_iters: 
                 break
             imgs, boxes, masks, _ = batch
@@ -221,7 +223,7 @@ def offline_prototypes_generation(cfg, model, loader):
                 coords = [[int(pt / 16) for pt in pair] for pair in coords]
                 for index in range(0, num_insts*num_points, num_points):
                     x, y = coords[index]
-                    pt = embed[x,y]
+                    pt = embed[y,x]
                     pts.append(pt)
 
     fin = FINCH(verbose=True)

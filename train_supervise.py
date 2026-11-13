@@ -1,5 +1,6 @@
 import os
 import time
+from datetime import timedelta
 import torch
 import lightning as L
 import torch.nn.functional as F
@@ -25,12 +26,17 @@ def train_sam(
     scheduler: _FabricOptimizer,
     train_dataloader: DataLoader,
     val_dataloader: DataLoader,
+    initial_validation_time: float,
 ):
     """The SAM training loop."""
 
     focal_loss = FocalLoss()
     dice_loss = DiceLoss()
     max_iou = 0.
+    train_start = time.monotonic()
+    total_batch_time = AverageMeter()
+    validation_time = AverageMeter()
+    validation_time.update(initial_validation_time)
 
     for epoch in range(1, cfg.num_epochs + 1):
         batch_time = AverageMeter()
@@ -71,6 +77,7 @@ def train_sam(
             optimizer.step()
             scheduler.step()
             batch_time.update(time.time() - end)
+            total_batch_time.update(batch_time.val)
             end = time.time()
 
             focal_losses.update(loss_focal.item(), batch_size)
@@ -78,7 +85,15 @@ def train_sam(
             iou_losses.update(loss_iou.item(), batch_size)
             total_losses.update(loss_total.item(), batch_size)
             if iter%50==0:
+                completed_steps = (epoch - 1) * num_iter + iter + 1
+                remaining_steps = cfg.num_epochs * num_iter - completed_steps
+                remaining_validations = cfg.num_epochs // cfg.eval_interval - (epoch - 1) // cfg.eval_interval
+                eta_seconds = (remaining_steps * total_batch_time.avg
+                               + remaining_validations * validation_time.avg)
+                elapsed = timedelta(seconds=round(time.monotonic() - train_start))
+                eta = timedelta(seconds=round(eta_seconds))
                 fabric.print(f'Epoch: [{epoch}][{iter+1}/{len(train_dataloader)}]'
+                             f' | Elapsed [{elapsed}] | ETA [{eta}]'
                              f' | Time [{batch_time.val:.3f}s ({batch_time.avg:.3f}s)]'
                              f' | Data [{data_time.val:.3f}s ({data_time.avg:.3f}s)]'
                              f' | Focal Loss [{focal_losses.val:.4f} ({focal_losses.avg:.4f})]'
@@ -87,7 +102,9 @@ def train_sam(
                              f' | Total Loss [{total_losses.val:.4f} ({total_losses.avg:.4f})]')
 
         if epoch % cfg.eval_interval == 0:
+            validation_start = time.monotonic()
             iou, f1_score = validate(fabric, cfg, model, val_dataloader, cfg.name, epoch)
+            validation_time.update(time.monotonic() - validation_start)
             if iou > max_iou:
                 state = {"model": model, "optimizer": optimizer}
                 fabric.save(os.path.join(cfg.out_dir, "save", "last-ckpt.pth"), state)
@@ -127,7 +144,7 @@ def main(cfg: Box) -> None:
                       strategy="auto",
                       loggers=[TensorBoardLogger(cfg.out_dir)])
     fabric.launch()
-    fabric.seed_everything(1337 + fabric.global_rank)
+    fabric.seed_everything(cfg.seed + fabric.global_rank)
 
     if fabric.global_rank == 0:
         os.makedirs(os.path.join(cfg.out_dir, "save"), exist_ok=True)
@@ -153,8 +170,10 @@ def main(cfg: Box) -> None:
     print('-'*100)
     print('\033[92mDirect test on the original SAM.\033[0m') 
     print('-'*100)
+    validation_start = time.monotonic()
     validate(fabric, cfg, anchor_model, val_data, name=cfg.name, epoch=0)
-    train_sam(cfg, fabric, model, optimizer, scheduler, train_data, val_data)
+    initial_validation_time = time.monotonic() - validation_start
+    train_sam(cfg, fabric, model, optimizer, scheduler, train_data, val_data, initial_validation_time)
 
     del model, anchor_model, train_data, val_data
 

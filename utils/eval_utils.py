@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 from tqdm import tqdm
 from scipy.ndimage import map_coordinates
@@ -109,7 +110,8 @@ def validate(fabric: L.Fabric, cfg: Box, model: Model, val_dataloader: DataLoade
     precision = AverageMeter()
 
     with torch.no_grad():
-        for iter, data in enumerate(tqdm(val_dataloader, desc='Validation', ncols=100)):
+        for iter, data in enumerate(tqdm(val_dataloader, desc='Validation', ncols=100,
+                                         disable=not sys.stderr.isatty())):
             images, bboxes, gt_masks, img_paths = data
             num_images = images.size(0)
             prompts = get_prompts(cfg, bboxes, gt_masks)
@@ -118,10 +120,9 @@ def validate(fabric: L.Fabric, cfg: Box, model: Model, val_dataloader: DataLoade
 
             for pred_mask, gt_mask in zip(pred_masks, gt_masks):
                 batch_stats = smp.metrics.get_stats(
-                    pred_mask,
+                    (pred_mask >= 0.5).int(),
                     gt_mask.int(),
                     mode='binary',
-                    threshold=0.5,
                 )
                 batch_recall = smp.metrics.recall(*batch_stats, reduction="micro-imagewise")
                 batch_precision = smp.metrics.precision(*batch_stats, reduction="micro-imagewise")
